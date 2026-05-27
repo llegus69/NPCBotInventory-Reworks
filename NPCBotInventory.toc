@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: NPCBotInventory
+## Notes: Muestra el equipo y stats de tus NPCBots con paperdoll interactivo
+## Author: Lleguito
+## Version: 3.0
+## SavedVariables: BotInventoryDB, NBIButtonPos, NBIStatsDB, NBIRealStatsDB
+
+Core.lua
+UI.lua
+BotInspect.lua
