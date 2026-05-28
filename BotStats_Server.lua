@@ -1,32 +1,60 @@
 -- ============================================================
 --  BotStats_Server.lua
---  Envia las estadisticas reales de los bots contratados
---  al cliente via AddonMessage (Eluna / AzerothCore + NPCBots)
+--  Envia las estadisticas reales de los bots contratados y rol.
+--  Eluna / AzerothCore + NPCBots
 -- ============================================================
--- PREFIJO: debe coincidir con el que use tu addon cliente
+
 local PREFIX = "BSTATS"
 
 -- ------------------------------------------------------------
--- Funcion principal: consulta y envia stats de todos los bots
--- del jugador que hace la peticion
+-- Conversion de bitmask de roles a texto legible
+-- Valores de characters_npcbot.roles:
+--   0 = DPS (sin flag especial)
+--   1 = Tank
+--   2 = Healer
+--   4 = Ranged DPS
+-- ------------------------------------------------------------
+local function RoleToString(roleMask)
+    roleMask = roleMask or 0
+    if roleMask == 0 then return "DPS"    end
+    if roleMask == 1 then return "Tank"   end
+    if roleMask == 2 then return "Healer" end
+    if roleMask == 4 then return "Ranged" end
+
+    -- Combinaciones usando matemáticas puras (compatible con todas las versiones de Lua)
+    local parts = {}
+    if roleMask % 2 >= 1 then table.insert(parts, "Tank") end
+    if math.floor(roleMask / 2) % 2 >= 1 then table.insert(parts, "Healer") end
+    if math.floor(roleMask / 4) % 2 >= 1 then table.insert(parts, "Ranged") end
+    
+    if #parts > 0 then return table.concat(parts, "+") end
+    return "DPS"
+end
+
+-- ------------------------------------------------------------
+-- Funcion principal
 -- ------------------------------------------------------------
 local function SendBotStats(player)
     local guidLow = player:GetGUIDLow()
 
-    -- 1) Obtener los entries de los bots contratados por este jugador
+    -- 1) Obtener entries, nombres y roles de los bots del jugador
     local botQuery = CharDBQuery(
-        "SELECT entry FROM characters_npcbot WHERE owner = " .. guidLow
+        "SELECT entry, roles FROM characters_npcbot WHERE owner = " .. guidLow
     )
 
     if not botQuery then
-        -- Sin bots: notificar al cliente y salir
         player:SendAddonMessage(PREFIX, "NOBOT", 7, player)
         return
     end
 
+    -- Construir mapa entry -> role string
     local botEntries = {}
+    local botRoles   = {}
     repeat
-        table.insert(botEntries, botQuery:GetUInt32(0))
+        local entry = botQuery:GetUInt32(0)
+        local roles = botQuery:GetUInt32(1)
+        table.insert(botEntries, entry)
+        botRoles[entry] = RoleToString(roles)
     until not botQuery:NextRow()
 
     if #botEntries == 0 then
@@ -36,8 +64,7 @@ local function SendBotStats(player)
 
     local entryList = table.concat(botEntries, ",")
 
-    -- 2) Consultar la tabla de estadisticas reales
-    --    characters_npcbot_stats se actualiza en tiempo real por el modulo NPCBots
+    -- 2) Consultar estadisticas reales desde characters_npcbot_stats
     local statsQuery = CharDBQuery([[
         SELECT
             entry,
@@ -72,13 +99,12 @@ local function SendBotStats(player)
     ]])
 
     if not statsQuery then
-        -- La tabla existe pero no hay filas aun (bot recien contratado)
         player:SendAddonMessage(PREFIX, "NOSTATS", 7, player)
         return
     end
 
     -- 3) Enviar una linea por bot con el formato:
-    --    STAT;<entry>;<hp>;<mp>;<str>;<agi>;<sta>;<int>;<spi>;<armor>;<def>;
+    --    STAT;<entry>;<role>;<hp>;<mp>;<str>;<agi>;<sta>;<int>;<spi>;<armor>;<def>;
     --         <rHoly>;<rFire>;<rNat>;<rFro>;<rSha>;<rArc>;
     --         <block%>;<dodge%>;<parry%>;<crit%>;
     --         <ap>;<sp>;<spellPen>;<haste%>;<hit%>;<expertise>;<arpen%>
@@ -111,9 +137,12 @@ local function SendBotStats(player)
         local exp    = statsQuery:GetUInt32(25) or 0
         local arpen  = statsQuery:GetFloat(26)  or 0.0
 
+        -- Obtener el rol del mapa (fallback a DPS si no se encuentra)
+        local role = botRoles[e] or "DPS"
+
         local msg = string.format(
-            "STAT;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2f;%.2f;%.2f;%.2f;%d;%d;%d;%.2f;%.2f;%d;%.2f",
-            e, hp, mp, str, agi, sta, int_, spi, arm, def,
+            "STAT;%d;%s;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2f;%.2f;%.2f;%.2f;%d;%d;%d;%.2f;%.2f;%d;%.2f",
+            e, role, hp, mp, str, agi, sta, int_, spi, arm, def,
             rHoly, rFire, rNat, rFro, rSha, rArc,
             block, dodge, parry, crit,
             ap, sp, spen, haste, hit, exp, arpen
@@ -123,25 +152,24 @@ local function SendBotStats(player)
 
     until not statsQuery:NextRow()
 
-    -- 4) Señal de fin de transmision para que el cliente sepa que ya llego todo
+    -- 4) Fin de transmision
     player:SendAddonMessage(PREFIX, "END", 7, player)
 end
 
 -- ------------------------------------------------------------
 -- Manejador de mensajes addon entrantes desde el cliente
--- El addon debe enviar: PREFIX + "REQUEST" para pedir las stats
 -- ------------------------------------------------------------
 local function OnAddonMessage(event, sender, msgType, prefix, msg, target)
     if prefix ~= PREFIX then return end
 
     if msg == "REQUEST" then
         SendBotStats(sender)
-        return false  -- Consumir el evento
+        return false
     end
 end
 
 -- ------------------------------------------------------------
--- Comando de chat alternativo: .bstats  (util para pruebas)
+-- Comando de chat alternativo: .bstats (util para pruebas)
 -- ------------------------------------------------------------
 local function OnCommand(event, player, command, chatHandler)
     local cmd = command:match("^(%S+)")
@@ -155,8 +183,6 @@ end
 
 -- ------------------------------------------------------------
 -- Registro de eventos
--- Evento 30 = ADDON_EVENT_ON_MESSAGE (mensaje addon del cliente)
--- Evento 42 = PLAYER_EVENT_ON_COMMAND (comando de chat)
 -- ------------------------------------------------------------
 RegisterServerEvent(30, OnAddonMessage)
 RegisterPlayerEvent(42, OnCommand)
