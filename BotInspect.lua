@@ -2,7 +2,7 @@
 -- NPCBotInventory - BotInspect.lua
 -- Ventana paperdoll: slots detectados automaticamente + stats
 -- Compatible con WotLK 3.3.5
--- Autor: Lleguito | Version: 3.5 (Soporte de Talentos)
+-- Autor: Lleguito | Version: 4.0 (Soporte Nativo de Specs por Base de Datos)
 -- ============================================================
 
 local NBI = NPCBotInventory
@@ -70,34 +70,48 @@ local QUALITY_COLOR = {
     [5] = {1,    0.5,  0   },
 }
 
--- Colores base del rol
-local ROLE_COLOR = {
-    Tank   = {0.4,  0.7,  1   },
-    Healer = {0.2,  0.9,  0.4 },
-    DPS    = {0.9,  0.2,  0.2 },
-    Ranged = {1,    0.6,  0.1 },
-}
-
--- Mapa de Talentos: Combina la CLASE + ROL y devuelve el Talento
-local TALENT_MAP = {
-    WARRIOR     = { Tank = "Protección",  DPS = "Furia",         Ranged = "Furia" },
-    PALADIN     = { Tank = "Protección",  Healer = "Sagrado",    DPS = "Reprensión",  Ranged = "Reprensión" },
-    HUNTER      = { Tank = "Bestias",     DPS = "Supervivencia", Ranged = "Puntería" },
-    ROGUE       = { Tank = "Evasión",     DPS = "Asesinato",     Ranged = "Combate" },
-    PRIEST      = { Tank = "Disciplina",  Healer = "Sagrado",    DPS = "Sombra",      Ranged = "Sombra" },
-    DEATHKNIGHT = { Tank = "Sangre",      Healer = "Sangre",     DPS = "Profano",     Ranged = "Escarcha" },
-    SHAMAN      = { Tank = "Mejora",      Healer = "Restauración",DPS = "Mejora",     Ranged = "Elemental" },
-    MAGE        = { Tank = "Escarcha",    Healer = "Arcano",     DPS = "Escarcha",    Ranged = "Fuego" },
-    WARLOCK     = { Tank = "Demonología", Healer = "Demonología",DPS = "Aflicción",   Ranged = "Destrucción" },
-    DRUID       = { Tank = "Oso Feral",   Healer = "Restauración",DPS = "Gato Feral", Ranged = "Equilibrio" },
-}
-
--- Fallback por si acaso el bot no está en el grupo y aún no conocemos su clase
-local ROLE_TRANSLATE = {
-    Tank   = "Tanque",
-    Healer = "Sanador",
-    DPS    = "Daño C-C",
-    Ranged = "Rango",
+-- Diccionario maestro indexado por la especialización real enviada desde el servidor
+local SPEC_INFO = {
+    -- Guerrero
+    WARRIOR_ARMS   = { name = "Armas",        role = "Daño C-C", color = {0.9, 0.2, 0.2} },
+    WARRIOR_FURY   = { name = "Furia",        role = "Daño C-C", color = {0.9, 0.2, 0.2} },
+    WARRIOR_PROT   = { name = "Protección",   role = "Tanque",   color = {0.4, 0.7, 1.0} },
+    -- Paladín
+    PALADIN_HOLY   = { name = "Sagrado",      role = "Sanador",  color = {0.2, 0.9, 0.4} },
+    PALADIN_PROT   = { name = "Protección",   role = "Tanque",   color = {0.4, 0.7, 1.0} },
+    PALADIN_RET    = { name = "Reprensión",   role = "Daño C-C", color = {0.9, 0.2, 0.2} },
+    -- Cazador
+    HUNTER_BM      = { name = "Bestias",      role = "Rango",    color = {1.0, 0.6, 0.1} },
+    HUNTER_MM      = { name = "Puntería",     role = "Rango",    color = {1.0, 0.6, 0.1} },
+    HUNTER_SURV    = { name = "Supervivencia",role = "Rango",    color = {1.0, 0.6, 0.1} },
+    -- Pícaro
+    ROGUE_ASS      = { name = "Asesinato",    role = "Daño C-C", color = {0.9, 0.2, 0.2} },
+    ROGUE_COMBAT   = { name = "Combate",      role = "Daño C-C", color = {0.9, 0.2, 0.2} },
+    ROGUE_SUB      = { name = "Sutileza",     role = "Daño C-C", color = {0.9, 0.2, 0.2} },
+    -- Sacerdote
+    PRIEST_DISC    = { name = "Disciplina",   role = "Sanador",  color = {0.2, 0.9, 0.4} },
+    PRIEST_HOLY    = { name = "Sagrado",      role = "Sanador",  color = {0.2, 0.9, 0.4} },
+    PRIEST_SHADOW  = { name = "Sombra",       role = "Rango",    color = {1.0, 0.6, 0.1} },
+    -- Caballero de la Muerte
+    DK_BLOOD       = { name = "Sangre",       role = "Tanque",   color = {0.4, 0.7, 1.0} },
+    DK_FROST       = { name = "Escarcha",     role = "Daño C-C", color = {0.9, 0.2, 0.2} },
+    DK_UNHOLY      = { name = "Profano",      role = "Daño C-C", color = {0.9, 0.2, 0.2} },
+    -- Chamán
+    SHAMAN_ELEM    = { name = "Elemental",    role = "Rango",    color = {1.0, 0.6, 0.1} },
+    SHAMAN_ENH     = { name = "Mejora",       role = "Daño C-C", color = {0.9, 0.2, 0.2} },
+    SHAMAN_RESTO   = { name = "Restauración", role = "Sanador",  color = {0.2, 0.9, 0.4} },
+    -- Mago
+    MAGE_ARCANE    = { name = "Arcano",       role = "Rango",    color = {1.0, 0.6, 0.1} },
+    MAGE_FIRE      = { name = "Fuego",        role = "Rango",    color = {1.0, 0.6, 0.1} },
+    MAGE_FROST     = { name = "Escarcha",     role = "Rango",    color = {1.0, 0.6, 0.1} },
+    -- Brujo
+    WARLOCK_AFF    = { name = "Aflicción",    role = "Rango",    color = {1.0, 0.6, 0.1} },
+    WARLOCK_DEMO   = { name = "Demonología",  role = "Rango",    color = {1.0, 0.6, 0.1} },
+    WARLOCK_DESTRO = { name = "Destrucción",  role = "Rango",    color = {1.0, 0.6, 0.1} },
+    -- Druida
+    DRUID_BALANCE  = { name = "Equilibrio",   role = "Rango",    color = {1.0, 0.6, 0.1} },
+    DRUID_FERAL    = { name = "Feral",        role = "Feral",    color = {0.9, 0.5, 0.1} },
+    DRUID_RESTO    = { name = "Restauración", role = "Sanador",  color = {0.2, 0.9, 0.4} },
 }
 
 local function GoldBorder(frame)
@@ -222,7 +236,6 @@ local function FindBotUnitId(botName)
                         if entry then
                             NBI.botEntryByName[botName] = entry
                             
-                            -- Detectamos y cacheamos la clase del bot
                             local _, botClass = UnitClass(unit)
                             if botClass then
                                 NBI.botClasses[entry] = botClass
@@ -511,26 +524,19 @@ function NBI.OpenInspect(botName)
         if gsVal then gs = "GS: " .. gsVal end
     end
 
+    -- Lectura directa de la cadena de texto de la Spec enviada por el Servidor
     local roleText = ""
     local entry = NBI.botEntryByName and NBI.botEntryByName[botName]
     if entry then
-        local role = NBI.botRoles[entry]
-        local botClass = NBI.botClasses[entry]
+        local botSpec = NBI.botRoles[entry] -- Aquí Eluna ahora almacena strings tipo "DRUID_RESTO"
+        local info = SPEC_INFO[botSpec]
 
-        if role then
-            local displayRole = role
-            
-            -- Aplicamos la lógica de talentos si conocemos la clase
-            if botClass and TALENT_MAP[botClass] and TALENT_MAP[botClass][role] then
-                displayRole = TALENT_MAP[botClass][role]
-            else
-                -- Fallback si no está mapeado o no ha cargado la clase
-                displayRole = ROLE_TRANSLATE[role] or role
-            end
-
-            local rc = ROLE_COLOR[role] or {0.8, 0.8, 0.8}
-            roleText = string.format("|cff%02x%02x%02x%s|r",
-                rc[1]*255, rc[2]*255, rc[3]*255, displayRole)
+        if info then
+            local rc = info.color
+            roleText = string.format("|cff%02x%02x%02x%s (%s)|r",
+                rc[1]*255, rc[2]*255, rc[3]*255, info.name, info.role)
+        else
+            roleText = "|cff888888Sin Spec|r"
         end
     end
 
