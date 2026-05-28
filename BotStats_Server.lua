@@ -1,34 +1,61 @@
 -- ============================================================
 --  BotStats_Server.lua
---  Envia las estadisticas reales de los bots contratados y rol.
---  Eluna / AzerothCore + NPCBots
+--  Envia las estadisticas reales de los bots contratados
+--  al cliente via AddonMessage (Eluna / AzerothCore + NPCBots)
+--  v4.0 - Adaptado nativamente al sistema de Especializaciones (Specs)
 -- ============================================================
 
 local PREFIX = "BSTATS"
 
 -- ------------------------------------------------------------
--- Conversion de bitmask de roles a texto legible
--- Valores de characters_npcbot.roles:
---   0 = DPS (sin flag especial)
---   1 = Tank
---   2 = Healer
---   4 = Ranged DPS
+-- Diccionario de mapeo oficial de la IA de NPCBots (Valores del 1 al 30)
 -- ------------------------------------------------------------
-local function RoleToString(roleMask)
-    roleMask = roleMask or 0
-    if roleMask == 0 then return "DPS"    end
-    if roleMask == 1 then return "Tank"   end
-    if roleMask == 2 then return "Healer" end
-    if roleMask == 4 then return "Ranged" end
+local function SpecToString(specId)
+    specId = tonumber(specId) or 0
+    local SPEC_MAP = {
+        -- Guerrero (WARRIOR)
+        [1]  = "WARRIOR_ARMS",       [2]  = "WARRIOR_FURY",       [3]  = "WARRIOR_PROT",
+        -- Paladín (PALADIN)
+        [4]  = "PALADIN_HOLY",       [5]  = "PALADIN_PROT",       [6]  = "PALADIN_RET",
+        -- Cazador (HUNTER)
+        [7]  = "HUNTER_BM",          [8]  = "HUNTER_MM",          [9]  = "HUNTER_SURV",
+        -- Pícaro (ROGUE)
+        [10] = "ROGUE_ASS",          [11] = "ROGUE_COMBAT",       [12] = "ROGUE_SUB",
+        -- Sacerdote (PRIEST)
+        [13] = "PRIEST_DISC",        [14] = "PRIEST_HOLY",        [15] = "PRIEST_SHADOW",
+        -- Caballero de la Muerte (DEATHKNIGHT)
+        [16] = "DK_BLOOD",           [17] = "DK_FROST",           [18] = "DK_UNHOLY",
+        -- Chamán (SHAMAN)
+        [19] = "SHAMAN_ELEM",        [20] = "SHAMAN_ENH",         [21] = "SHAMAN_RESTO",
+        -- Mago (MAGE)
+        [22] = "MAGE_ARCANE",        [23] = "MAGE_FIRE",          [24] = "MAGE_FROST",
+        -- Brujo (WARLOCK)
+        [25] = "WARLOCK_AFF",        [26] = "WARLOCK_DEMO",       [27] = "WARLOCK_DESTRO",
+        -- Druida (DRUID)
+        [28] = "DRUID_BALANCE",      [29] = "DRUID_FERAL",        [30] = "DRUID_RESTO",
+    }
+    return SPEC_MAP[specId] or "UNKNOWN"
+end
 
-    -- Combinaciones usando matemáticas puras (compatible con todas las versiones de Lua)
-    local parts = {}
-    if roleMask % 2 >= 1 then table.insert(parts, "Tank") end
-    if math.floor(roleMask / 2) % 2 >= 1 then table.insert(parts, "Healer") end
-    if math.floor(roleMask / 4) % 2 >= 1 then table.insert(parts, "Ranged") end
-    
-    if #parts > 0 then return table.concat(parts, "+") end
-    return "DPS"
+-- ------------------------------------------------------------
+-- Funcion interna para buscar el bot vivo en el grupo del jugador
+-- ------------------------------------------------------------
+local function FindLiveBotInGroup(player, targetEntry)
+    local group = player:GetGroup()
+    if not group then return nil end
+
+    local members = group:GetMembers()
+    if not members then return nil end
+
+    for _, member in ipairs(members) do
+        -- Comprobamos si el miembro del grupo es una criatura (un NPCBot)
+        if member:GetTypeId() == 3 then 
+            if member:GetEntry() == targetEntry and member:IsAlive() then
+                return member
+            end
+        end
+    end
+    return nil
 end
 
 -- ------------------------------------------------------------
@@ -37,9 +64,9 @@ end
 local function SendBotStats(player)
     local guidLow = player:GetGUIDLow()
 
-    -- 1) Obtener entries, nombres y roles de los bots del jugador
+    -- 1) Obtener entries y la columna 'spec' real de los bots en lugar de la máscara de bits obsoleta
     local botQuery = CharDBQuery(
-        "SELECT entry, roles FROM characters_npcbot WHERE owner = " .. guidLow
+        "SELECT entry, spec FROM characters_npcbot WHERE owner = " .. guidLow
     )
 
     if not botQuery then
@@ -47,14 +74,13 @@ local function SendBotStats(player)
         return
     end
 
-    -- Construir mapa entry -> role string
     local botEntries = {}
-    local botRoles   = {}
+    local botSpecs   = {}
     repeat
         local entry = botQuery:GetUInt32(0)
-        local roles = botQuery:GetUInt32(1)
+        local spec  = botQuery:GetUInt32(1)
         table.insert(botEntries, entry)
-        botRoles[entry] = RoleToString(roles)
+        botSpecs[entry] = SpecToString(spec) -- Guardamos directamente el string identificador (Ej: "DRUID_RESTO")
     until not botQuery:NextRow()
 
     if #botEntries == 0 then
@@ -64,36 +90,13 @@ local function SendBotStats(player)
 
     local entryList = table.concat(botEntries, ",")
 
-    -- 2) Consultar estadisticas reales desde characters_npcbot_stats
+    -- 2) Consultar estadisticas base desde la base de datos
     local statsQuery = CharDBQuery([[
         SELECT
-            entry,
-            maxhealth,
-            maxpower,
-            strength,
-            agility,
-            stamina,
-            intellect,
-            spirit,
-            armor,
-            defense,
-            resHoly,
-            resFire,
-            resNature,
-            resFrost,
-            resShadow,
-            resArcane,
-            blockPct,
-            dodgePct,
-            parryPct,
-            critPct,
-            attackPower,
-            spellPower,
-            spellPen,
-            hastePct,
-            hitBonusPct,
-            expertise,
-            armorPenPct
+            entry, maxhealth, maxpower, strength, agility, stamina, intellect, spirit,
+            armor, defense, resHoly, resFire, resNature, resFrost, resShadow, resArcane,
+            blockPct, dodgePct, parryPct, critPct, attackPower, spellPower, spellPen,
+            hastePct, hitBonusPct, expertise, armorPenPct
         FROM characters_npcbot_stats
         WHERE entry IN (]] .. entryList .. [[)
     ]])
@@ -103,11 +106,7 @@ local function SendBotStats(player)
         return
     end
 
-    -- 3) Enviar una linea por bot con el formato:
-    --    STAT;<entry>;<role>;<hp>;<mp>;<str>;<agi>;<sta>;<int>;<spi>;<armor>;<def>;
-    --         <rHoly>;<rFire>;<rNat>;<rFro>;<rSha>;<rArc>;
-    --         <block%>;<dodge%>;<parry%>;<crit%>;
-    --         <ap>;<sp>;<spellPen>;<haste%>;<hit%>;<expertise>;<arpen%>
+    -- 3) Procesar y enviar datos
     repeat
         local e      = statsQuery:GetUInt32(0)  or 0
         local hp     = statsQuery:GetUInt32(1)  or 0
@@ -137,12 +136,24 @@ local function SendBotStats(player)
         local exp    = statsQuery:GetUInt32(25) or 0
         local arpen  = statsQuery:GetFloat(26)  or 0.0
 
-        -- Obtener el rol del mapa (fallback a DPS si no se encuentra)
-        local role = botRoles[e] or "DPS"
+        -- Buscar el bot usando el nuevo escáner de grupo seguro
+        local liveBot = FindLiveBotInGroup(player, e)
+        if liveBot then
+            hp   = liveBot:GetMaxHealth()
+            mp   = liveBot:GetMaxPower(liveBot:GetPowerType())
+            str  = liveBot:GetStat(0)
+            agi  = liveBot:GetStat(1)
+            sta  = liveBot:GetStat(2)
+            int_ = liveBot:GetStat(3)
+            spi  = liveBot:GetStat(4)
+            arm  = liveBot:GetArmor()
+        end
+
+        local currentSpec = botSpecs[e] or "UNKNOWN"
 
         local msg = string.format(
             "STAT;%d;%s;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%.2f;%.2f;%.2f;%.2f;%d;%d;%d;%.2f;%.2f;%d;%.2f",
-            e, role, hp, mp, str, agi, sta, int_, spi, arm, def,
+            e, currentSpec, hp, mp, str, agi, sta, int_, spi, arm, def,
             rHoly, rFire, rNat, rFro, rSha, rArc,
             block, dodge, parry, crit,
             ap, sp, spen, haste, hit, exp, arpen
@@ -152,7 +163,6 @@ local function SendBotStats(player)
 
     until not statsQuery:NextRow()
 
-    -- 4) Fin de transmision
     player:SendAddonMessage(PREFIX, "END", 7, player)
 end
 
@@ -169,7 +179,7 @@ local function OnAddonMessage(event, sender, msgType, prefix, msg, target)
 end
 
 -- ------------------------------------------------------------
--- Comando de chat alternativo: .bstats (util para pruebas)
+-- Comando de chat alternativo: .bstats
 -- ------------------------------------------------------------
 local function OnCommand(event, player, command, chatHandler)
     local cmd = command:match("^(%S+)")
@@ -181,8 +191,5 @@ local function OnCommand(event, player, command, chatHandler)
     end
 end
 
--- ------------------------------------------------------------
--- Registro de eventos
--- ------------------------------------------------------------
 RegisterServerEvent(30, OnAddonMessage)
 RegisterPlayerEvent(42, OnCommand)
