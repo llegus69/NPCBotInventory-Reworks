@@ -160,5 +160,6 @@ BotStats_Server.lua       — Script Eluna (va en el servidor, no en el cliente)
 Desarrollado por **Lleguito** para servidores privados AzerothCore con el módulo NPCBots.  
 El script de servidor (`BotStats_Server.lua`) se inspira en la arquitectura de comunicación de **BotManagerUI** de su autor original.
 
-<img width="1366" height="705" alt="Wow 2026-05-27 10-15-38" src="https://github.com/user-attachments/assets/33773f2c-81a0-4906-8153-66b8fbbdf329" />
+<img width="3840" height="2160" alt="Wow 2026-05-28 18-40-23" src="https://github.com/user-attachments/assets/e2e2729a-1615-4875-befb-0b77264ef1fc" />
+
 
