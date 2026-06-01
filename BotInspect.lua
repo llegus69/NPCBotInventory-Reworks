@@ -2,7 +2,7 @@
 -- NPCBotInventory - BotInspect.lua
 -- Ventana paperdoll unificada: slots automáticos + stats integradas
 -- Compatible con WotLK 3.3.5
--- Autor: Lleguito
+-- Autor: Lleguito 
 -- ============================================================
 
 local NBI = NPCBotInventory
@@ -14,26 +14,34 @@ local LANG = "ES"  -- Idioma por defecto / Default language
 
 local L = {}
 
--- Etiquetas de slots / Slot labels
+-- Etiquetas de slots y textos / Slot labels & texts
 L["ES"] = {
     Head      = "Cabeza", Neck      = "Cuello", Shoulder  = "Hombros", Back      = "Espalda",
     Chest     = "Pecho", Shirt     = "Camisa", Tabard    = "Tabardo", Wrist     = "Muñecas",
     Hands     = "Manos", Waist     = "Cintura", Legs      = "Piernas", Feet      = "Pies",
     Ring1     = "Anillo 1", Ring2     = "Anillo 2", Trinket1  = "Reliq. 1", Trinket2  = "Reliq. 2",
-    MainHand  = "Mano Ppal.", OffHand   = "Mano Sec.", Ranged    = "A Distancia",
+    MainHand  = "Mano Ppal.", OffHand   = "Mano Sec.", 
+    Ranged    = "Rango / Reliquia",
     Base      = "Base", Attack    = "Ataque", Defense   = "Defensa", Resist    = "Resistencias",
     maxhealth   = "Vida Máx", maxpower    = "Maná/Energía", strength    = "Fuerza",
     agility     = "Agilidad", stamina     = "Aguante", intellect   = "Intelecto",
     spirit      = "Espíritu", attackPower = "Poder Ataque", spellPower  = "Poder Hechizo",
     spellPen    = "Pen. Hechizo", critPct     = "Crítico", hastePct    = "Celeridad",
     hitBonusPct = "Golpe", expertise   = "Pericia", armorPenPct = "Pen. Armadura",
-    armor       = "Armadura", defense     = "Defensa", dodgePct    = "Esquive",
+    armor       = "Armadura", defense     = "Defensa", dodgePct    = "Esquivar",
     parryPct    = "Parada", blockPct    = "Bloqueo", resHoly     = "Sagrado",
     resFire     = "Fuego", resNature   = "Naturaleza", resFrost    = "Escarcha",
     resShadow   = "Sombras", resArcane   = "Arcano",
     refresh_btn = "Actualizar Stats", no_spec     = "Sin Spec",
     title       = "NPCBot Inventory Inspector", credits     = "Creado por Lleguito",
     loaded_msg  = "BotInspect unificado cargado. /botinv inspect <nombre>",
+    lang_prefix = "Idioma:",
+    -- Textos de Ayuda
+    help_btn    = "Ayuda",
+    help_title  = "Información de Ayuda",
+    help_text   = "Recuerda: Si hay algún dato que no se ve, clic en \"Borrar todo\" del cuadro NPCBot para eliminar todos los registros y pedirle a los bots \"Muéstrame tu inventario\", así se actualizarán los datos.",
+    help_ok     = "Entendido",
+    no_party_msg = "Para poder ver el modelo 3D y los datos restantes, el bot tiene que pertenecer a tu grupo",
 }
 
 L["EN"] = {
@@ -41,7 +49,8 @@ L["EN"] = {
     Chest     = "Chest", Shirt     = "Shirt", Tabard    = "Tabard", Wrist     = "Wrist",
     Hands     = "Hands", Waist     = "Waist", Legs      = "Legs", Feet      = "Feet",
     Ring1     = "Ring 1", Ring2     = "Ring 2", Trinket1  = "Trinket 1", Trinket2  = "Trinket 2",
-    MainHand  = "Main Hand", OffHand   = "Off Hand", Ranged    = "Ranged",
+    MainHand  = "Main Hand", OffHand   = "Off Hand", 
+    Ranged    = "Ranged / Relic",
     Base      = "Base", Attack    = "Attack", Defense   = "Defense", Resist    = "Resistences",
     maxhealth   = "Max Health", maxpower    = "Mana/Energy", strength    = "Strength",
     agility     = "Agility", stamina     = "Stamina", intellect   = "Intellect",
@@ -55,6 +64,13 @@ L["EN"] = {
     refresh_btn = "Refresh Stats", no_spec     = "No Spec",
     title       = "NPCBot Inventory Inspector", credits     = "Created by Lleguito",
     loaded_msg  = "BotInspect loaded. /botinv inspect <name>",
+    lang_prefix = "Language:",
+    -- Help Texts
+    help_btn    = "Help",
+    help_title  = "Help Information",
+    help_text   = "Remember: If any data is missing, click \"Clear All\" in the NPCBot frame to clear all records, then ask the bots \"Show me your inventory\" to update the data.",
+    help_ok     = "Got it",
+    no_party_msg = "To view the 3D model and remaining data, the bot must be in your party",
 }
 
 local function T(key)
@@ -115,7 +131,7 @@ local SPEC_NAMES = {
         PRIEST_DISC    = "Discipline",   PRIEST_HOLY    = "Holy",         PRIEST_SHADOW  = "Shadow",
         DK_BLOOD       = "Blood",        DK_FROST       = "Frost",        DK_UNHOLY      = "Unholy",
         SHAMAN_ELEM    = "Elemental",    SHAMAN_ENH     = "Enhancement",  SHAMAN_RESTO   = "Restoration",
-        MAGE_ARCANE    = "Arcane",       MAGE_FIRE      = "Fire",         MAGE_FROST     = "Frost",
+        MAGE_ARCANE    = "Arcane",       MAGE_FIRE      = "Fuego",        MAGE_FROST     = "Frost",
         WARLOCK_AFF    = "Affliction",   WARLOCK_DEMO   = "Demonology",   WARLOCK_DESTRO = "Destruction",
         DRUID_BALANCE  = "Balance",      DRUID_FERAL    = "Feral",        DRUID_RESTO    = "Restoration",
     },
@@ -155,25 +171,25 @@ local EQUIP_SLOT_MAP = {
 }
 
 local SLOT_LAYOUT = {
-    { name = "Head",      labelKey = "Head",     x = -150, y =  145 },
-    { name = "Neck",      labelKey = "Neck",     x = -150, y =   98 },
-    { name = "Shoulder",  labelKey = "Shoulder", x = -150, y =   51 },
-    { name = "Back",      labelKey = "Back",     x = -150, y =    4 },
-    { name = "Chest",     labelKey = "Chest",    x = -150, y =  -43 },
-    { name = "Shirt",     labelKey = "Shirt",    x = -150, y =  -90 },
-    { name = "Tabard",    labelKey = "Tabard",   x = -150, y = -137 },
-    { name = "Wrist",     labelKey = "Wrist",    x = -150, y = -184 },
-    { name = "Hands",     labelKey = "Hands",    x =  140, y =  145 },
-    { name = "Waist",     labelKey = "Waist",    x =  140, y =   98 },
-    { name = "Legs",      labelKey = "Legs",     x =  140, y =   51 },
-    { name = "Feet",      labelKey = "Feet",     x =  140, y =    4 },
-    { name = "Finger1",   labelKey = "Ring1",    x =  140, y =  -43 },
-    { name = "Finger2",   labelKey = "Ring2",    x =  140, y =  -90 },
-    { name = "Trinket1",  labelKey = "Trinket1", x =  140, y = -137 },
-    { name = "Trinket2",  labelKey = "Trinket2", x =  140, y = -184 },
-    { name = "MainHand",  labelKey = "MainHand", x = -150, y = -250 },
-    { name = "OffHand",   labelKey = "OffHand",  x =  140, y = -250 },
-    { name = "Ranged",    labelKey = "Ranged",   x =   -5, y = -250 }, -- Bajado a -250 para alineación perfecta simétrica
+    { name = "Head",      labelKey = "Head",     x = -150, y =  200 },
+    { name = "Neck",      labelKey = "Neck",     x = -150, y =  146 },
+    { name = "Shoulder",  labelKey = "Shoulder", x = -150, y =   92 },
+    { name = "Back",      labelKey = "Back",     x = -150, y =   38 },
+    { name = "Chest",     labelKey = "Chest",    x = -150, y =  -16 },
+    { name = "Shirt",     labelKey = "Shirt",    x = -150, y =  -70 },
+    { name = "Tabard",    labelKey = "Tabard",   x = -150, y = -124 },
+    { name = "Wrist",     labelKey = "Wrist",    x = -150, y = -178 },
+    { name = "Hands",     labelKey = "Hands",    x =  140, y =  200 },
+    { name = "Waist",     labelKey = "Waist",    x =  140, y =  146 },
+    { name = "Legs",      labelKey = "Legs",     x =  140, y =   92 },
+    { name = "Feet",      labelKey = "Feet",     x =  140, y =   38 },
+    { name = "Finger1",   labelKey = "Ring1",    x =  140, y =  -16 },
+    { name = "Finger2",   labelKey = "Ring2",    x =  140, y =  -70 },
+    { name = "Trinket1",  labelKey = "Trinket1", x =  140, y = -124 },
+    { name = "Trinket2",  labelKey = "Trinket2", x =  140, y = -178 },
+    { name = "MainHand",  labelKey = "MainHand", x = -150, y = -245 },
+    { name = "OffHand",   labelKey = "OffHand",  x =  140, y = -245 },
+    { name = "Ranged",    labelKey = "Ranged",   x =   -5, y = -245 },
 }
 
 local SLOT_SZ = 37
@@ -237,10 +253,19 @@ inspectHeader:SetHeight(52)
 inspectHeader:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background" })
 inspectHeader:SetBackdropColor(0.08, 0.07, 0.03, 1)
 
+-- TÍTULO ALINEADO Y CENTRADO EN EL MEDIO DEL PAPERDOLL
 local inspectTitle = inspectHeader:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-inspectTitle:SetPoint("LEFT", inspectHeader, "LEFT", 20, 0)
+inspectTitle:SetPoint("CENTER", paperdollFrame, "TOP", 12, -26) -- Desplazado ligeramente a la derecha para equilibrar el icono
 inspectTitle:SetTextColor(1, 0.82, 0, 1)
 inspectTitle:SetText("NPCBot Inventory Inspector")
+
+-- ============================================================
+-- ICONO DEL TÍTULO (Libro de Hechizos y Habilidades)
+-- ============================================================
+local inspectTitleIcon = inspectHeader:CreateTexture(nil, "OVERLAY")
+inspectTitleIcon:SetSize(22, 22)
+inspectTitleIcon:SetTexture("Interface\\Spellbook\\Spellbook-Icon")
+inspectTitleIcon:SetPoint("RIGHT", inspectTitle, "LEFT", -8, 0)
 
 local sep = inspectFrame:CreateTexture(nil, "ARTWORK")
 sep:SetHeight(1)
@@ -258,11 +283,17 @@ creditsLabel:SetTextColor(0.4, 0.4, 0.4, 1)
 creditsLabel:SetText(T("credits"))
 
 -- ============================================================
--- SELECTOR DE IDIOMA LIMPIO (SIN BANDERAS)
+-- ANCLAJES SECTOR IDIOMA (Mantenidos fijos a la derecha)
 -- ============================================================
+local langText = inspectFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+langText:SetPoint("TOPRIGHT", inspectFrame, "TOPRIGHT", -75, -20)
+langText:SetTextColor(1, 0.82, 0, 1)
+langText:SetText(T("lang_prefix"))
+inspectFrame.langText = langText
+
 local langSelector = CreateFrame("Frame", "NBI_LangSelector", inspectFrame, "BackdropTemplate")
-langSelector:SetSize(58, 20)
-langSelector:SetPoint("TOPRIGHT", inspectFrame, "TOPRIGHT", -26, -16)
+langSelector:SetSize(40, 20)
+langSelector:SetPoint("LEFT", langText, "RIGHT", 6, 0)
 langSelector:SetBackdrop({
     bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -275,18 +306,13 @@ langSelector:EnableMouse(true)
 langSelector:SetFrameLevel(inspectFrame:GetFrameLevel() + 5)
 
 local langLabel = langSelector:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-langLabel:SetPoint("CENTER", langSelector, "CENTER", -6, 0)
-langLabel:SetTextColor(1, 0.82, 0, 1)
+langLabel:SetPoint("CENTER", langSelector, "CENTER", 0, 0)
+langLabel:SetTextColor(1, 1, 1, 1)
 langLabel:SetText(LANG)
 inspectFrame.langLabel = langLabel
 
-local langArrow = langSelector:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-langArrow:SetPoint("RIGHT", langSelector, "RIGHT", -5, 0)
-langArrow:SetTextColor(0.7, 0.7, 0.7, 1)
-langArrow:SetText("▾")
-
 local langDropdown = CreateFrame("Frame", "NBI_LangDropdown", inspectFrame, "BackdropTemplate")
-langDropdown:SetSize(58, 46)
+langDropdown:SetSize(40, 46)
 langDropdown:SetPoint("TOPRIGHT", langSelector, "BOTTOMRIGHT", 0, -2)
 langDropdown:SetBackdrop({
     bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -299,12 +325,61 @@ langDropdown:SetBackdropBorderColor(0.5, 0.42, 0.1, 0.9)
 langDropdown:SetFrameLevel(inspectFrame:GetFrameLevel() + 20)
 langDropdown:Hide()
 
+-- ============================================================
+-- VENTANA DE AYUDA (HELP FRAME)
+-- ============================================================
+local helpWin = CreateFrame("Frame", "NBI_HelpWindow", inspectFrame)
+helpWin:SetSize(400, 160)
+helpWin:SetPoint("CENTER", inspectFrame, "CENTER", 0, 0)
+helpWin:SetFrameLevel(inspectFrame:GetFrameLevel() + 50)
+GoldBorder(helpWin)
+helpWin:SetBackdropColor(0.08, 0.08, 0.12, 0.98)
+helpWin:Hide()
+
+local helpWinTitle = helpWin:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+helpWinTitle:SetPoint("TOP", helpWin, "TOP", 0, -15)
+helpWinTitle:SetTextColor(1, 0.82, 0, 1)
+helpWinTitle:SetText(T("help_title"))
+
+local helpWinText = helpWin:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+helpWinText:SetPoint("TOPLEFT", helpWin, "TOPLEFT", 20, -45)
+helpWinText:SetPoint("BOTTOMRIGHT", helpWin, "BOTTOMRIGHT", -20, 45)
+helpWinText:SetJustifyH("CENTER")
+helpWinText:SetJustifyV("TOP")
+helpWinText:SetTextColor(1, 1, 1, 1)
+helpWinText:SetText(T("help_text"))
+
+local helpWinClose = CreateFrame("Button", nil, helpWin, "UIPanelButtonTemplate")
+helpWinClose:SetSize(100, 26)
+helpWinClose:SetPoint("BOTTOM", helpWin, "BOTTOM", 0, 15)
+helpWinClose:SetText(T("help_ok"))
+helpWinClose:SetScript("OnClick", function() helpWin:Hide() end)
+
+-- ============================================================
+-- BOTÓN DE AYUDA (Posicionado arriba a la izquierda del idioma)
+-- ============================================================
+local helpBtn = CreateFrame("Button", nil, inspectFrame, "UIPanelButtonTemplate")
+helpBtn:SetSize(75, 22)
+helpBtn:SetPoint("RIGHT", langText, "LEFT", -28, 0)
+helpBtn:SetText(T("help_btn"))
+helpBtn:SetScript("OnClick", function()
+    if helpWin:IsShown() then helpWin:Hide() else helpWin:Show() end
+end)
+
 local function ApplyLanguage(newLang)
     LANG = newLang
     langLabel:SetText(LANG)
     creditsLabel:SetText(T("credits"))
     inspectTitle:SetText(T("title"))
+    
+    if inspectFrame.langText then inspectFrame.langText:SetText(T("lang_prefix")) end
     if statsRefreshBtn then statsRefreshBtn:SetText(T("refresh_btn")) end
+    if helpBtn then helpBtn:SetText(T("help_btn")) end
+    if helpWinTitle then helpWinTitle:SetText(T("help_title")) end
+    if helpWinText then helpWinText:SetText(T("help_text")) end
+    if helpWinClose then helpWinClose:SetText(T("help_ok")) end
+    if inspectFrame.noPartyMessage then inspectFrame.noPartyMessage:SetText(T("no_party_msg")) end
+    
     for _, slotInfo in ipairs(SLOT_LAYOUT) do
         local sf = inspectFrame.slotFrames and inspectFrame.slotFrames[slotInfo.name]
         if sf and sf.slotLabel then
@@ -320,7 +395,7 @@ end
 local LANG_OPTIONS = { "ES", "EN" }
 for i, optLang in ipairs(LANG_OPTIONS) do
     local row = CreateFrame("Button", nil, langDropdown)
-    row:SetSize(54, 20)
+    row:SetSize(36, 20)
     row:SetPoint("TOPLEFT", langDropdown, "TOPLEFT", 2, -2 - (i-1)*22)
     local rowBg = row:CreateTexture(nil, "BACKGROUND")
     rowBg:SetAllPoints(row)
@@ -343,12 +418,11 @@ end)
 inspectFrame:SetScript("OnMouseDown", function() langDropdown:Hide() end)
 
 -- ============================================================
--- MODELO 3D AMPLIADO E INFO INTEGRADA (DESPLAZADO HACIA ARRIBA)
+-- MODELO 3D TOTALMENTE INTEGRADO Y REESCALADO SIN VACÍOS
 -- ============================================================
 local centerBg = CreateFrame("Frame", nil, paperdollFrame)
-centerBg:SetSize(220, 440)
--- Modificado de -20 a 25 en el eje vertical para alejarlo de las armas inferiores
-centerBg:SetPoint("CENTER", paperdollFrame, "CENTER", -5, 25)
+centerBg:SetSize(220, 443) 
+centerBg:SetPoint("TOP", paperdollFrame, "CENTER", -5, 208) 
 centerBg:SetBackdrop({
     bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -359,8 +433,21 @@ centerBg:SetBackdropColor(0.05, 0.05, 0.1, 0.5)
 centerBg:SetBackdropBorderColor(0.3, 0.25, 0.1, 0.6)
 
 local portraitModel = CreateFrame("PlayerModel", "NBI_PortraitModel", centerBg)
-portraitModel:SetSize(212, 432)
+portraitModel:SetSize(212, 435)
 portraitModel:SetPoint("CENTER", centerBg, "CENTER", 0, 0)
+
+-- ============================================================
+-- MENSAJE DE ADVERTENCIA (FUERA DE GRUPO)
+-- ============================================================
+local noPartyMessage = centerBg:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+noPartyMessage:SetPoint("CENTER", centerBg, "CENTER", 0, 0)
+noPartyMessage:SetSize(180, 200)
+noPartyMessage:SetJustifyH("CENTER")
+noPartyMessage:SetJustifyV("MIDDLE")
+noPartyMessage:SetTextColor(1, 0.3, 0.3, 1)
+noPartyMessage:SetText(T("no_party_msg"))
+noPartyMessage:Hide()
+inspectFrame.noPartyMessage = noPartyMessage
 
 local portraitPlaceholder = centerBg:CreateTexture(nil, "ARTWORK")
 portraitPlaceholder:SetSize(120, 120)
@@ -368,22 +455,19 @@ portraitPlaceholder:SetPoint("CENTER", portraitModel, "CENTER", 0, 0)
 portraitPlaceholder:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
 portraitPlaceholder:SetAlpha(0.3)
 
--- Overlay integrado en el "TOP" del avatar
 local infoOverlay = CreateFrame("Frame", nil, centerBg)
 infoOverlay:SetSize(212, 45)
-infoOverlay:SetPoint("TOP", portraitModel, "TOP", 0, 0)
+infoOverlay:SetPoint("BOTTOM", portraitModel, "BOTTOM", 0, 0)
 local bgTex = infoOverlay:CreateTexture(nil, "BACKGROUND")
 bgTex:SetAllPoints()
 bgTex:SetTexture(0, 0, 0, 0.8)
 
--- Icono de clase
 local botInfoClassIcon = infoOverlay:CreateTexture(nil, "OVERLAY")
 botInfoClassIcon:SetSize(18, 18)
 botInfoClassIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 botInfoClassIcon:SetPoint("TOPLEFT", infoOverlay, "TOPLEFT", 10, -5)
 inspectFrame.botInfoClassIcon = botInfoClassIcon
 
--- Nombre
 local botInfoName = infoOverlay:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 botInfoName:SetPoint("LEFT", botInfoClassIcon, "RIGHT", 6, 0)
 botInfoName:SetPoint("RIGHT", infoOverlay, "RIGHT", -10, 0)
@@ -391,14 +475,12 @@ botInfoName:SetJustifyH("LEFT")
 botInfoName:SetTextColor(1, 0.82, 0, 1)
 inspectFrame.botInfoName = botInfoName
 
--- Icono de spec
 local botInfoSpecIcon = infoOverlay:CreateTexture(nil, "OVERLAY")
 botInfoSpecIcon:SetSize(14, 14)
 botInfoSpecIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 botInfoSpecIcon:SetPoint("BOTTOMLEFT", infoOverlay, "BOTTOMLEFT", 10, 6)
 inspectFrame.botInfoSpecIcon = botInfoSpecIcon
 
--- Texto spec + GS
 local botInfoSpec = infoOverlay:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 botInfoSpec:SetPoint("LEFT", botInfoSpecIcon, "RIGHT", 6, 0)
 botInfoSpec:SetPoint("RIGHT", infoOverlay, "RIGHT", -10, 0)
@@ -618,7 +700,7 @@ end
 function NBI.OpenStatsWindow(botName)
     local entry = NBI.botEntryByName and NBI.botEntryByName[botName]
     if not entry then
-        local unitId = FindBotUnitId(botName)
+        local unitId = inspectFrame.FindBotUnitId(botName)
     end
     entry = NBI.botEntryByName and NBI.botEntryByName[botName]
 
@@ -700,9 +782,11 @@ function NBI.OpenInspect(botName)
     if unitId then
         portraitModel:SetUnit(unitId)
         portraitPlaceholder:SetAlpha(0)
+        inspectFrame.noPartyMessage:Hide()
     else
         portraitModel:ClearModel()
         portraitPlaceholder:SetAlpha(0.3)
+        inspectFrame.noPartyMessage:Show()
     end
 
     for _, sf in pairs(inspectFrame.slotFrames) do
@@ -755,6 +839,8 @@ function NBI.OpenInspect(botName)
 
     NBI.OpenStatsWindow(botName)
 
+    helpWin:Hide()
+    
     inspectFrame:Show()
     inspectFrame:Raise()
 end
