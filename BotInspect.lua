@@ -131,7 +131,7 @@ local SPEC_NAMES = {
         PRIEST_DISC    = "Discipline",   PRIEST_HOLY    = "Holy",         PRIEST_SHADOW  = "Shadow",
         DK_BLOOD       = "Blood",        DK_FROST       = "Frost",        DK_UNHOLY      = "Unholy",
         SHAMAN_ELEM    = "Elemental",    SHAMAN_ENH     = "Enhancement",  SHAMAN_RESTO   = "Restoration",
-        MAGE_ARCANE    = "Arcane",       MAGE_FIRE      = "Fuego",        MAGE_FROST     = "Frost",
+        MAGE_ARCANE    = "Arcane",       MAGE_FIRE      = "Fire",         MAGE_FROST     = "Frost",
         WARLOCK_AFF    = "Affliction",   WARLOCK_DEMO   = "Demonology",   WARLOCK_DESTRO = "Destruction",
         DRUID_BALANCE  = "Balance",      DRUID_FERAL    = "Feral",        DRUID_RESTO    = "Restoration",
     },
@@ -366,6 +366,9 @@ helpBtn:SetScript("OnClick", function()
     if helpWin:IsShown() then helpWin:Hide() else helpWin:Show() end
 end)
 
+-- Declaración previa para que ApplyLanguage pueda acceder a la variable local antes de ser creada abajo
+local statsRefreshBtn 
+
 local function ApplyLanguage(newLang)
     LANG = newLang
     langLabel:SetText(LANG)
@@ -577,7 +580,8 @@ statsWin:SetSize(STATS_WIN_W, STATS_WIN_H)
 statsWin:SetPoint("TOPRIGHT", inspectFrame, "TOPRIGHT", -12, -58)
 GoldBorder(statsWin)
 
-local statsRefreshBtn = CreateFrame("Button", nil, statsWin, "UIPanelButtonTemplate")
+-- Quitamos el "local" de aquí porque la variable ya fue declarada globalmente arriba
+statsRefreshBtn = CreateFrame("Button", nil, statsWin, "UIPanelButtonTemplate")
 statsRefreshBtn:SetSize(STATS_WIN_W - 24, 22)
 statsRefreshBtn:SetPoint("BOTTOM", statsWin, "BOTTOM", 0, 8)
 statsRefreshBtn:SetText(T("refresh_btn"))
