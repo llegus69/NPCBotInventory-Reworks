@@ -178,9 +178,13 @@ El addon funciona en dos capas:
 
 ---
 
+<img width="3840" height="2160" alt="1 4" src="https://github.com/user-attachments/assets/50940429-9b9f-4a0c-b682-41b38147eaf1" />
+
+
+
 ## 👤 Author / Autor
 
-**Lleguito** — v4.0
+**Lleguito** — v1.4
 
 > *Built with ☕ and too many late-night raids.*  
 > *Hecho con ☕ y demasiadas noches de raid.*
